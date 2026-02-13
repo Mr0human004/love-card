@@ -1,110 +1,221 @@
-const text=document.getElementById("sceneText");
-const card=document.getElementById("card");
-const inner=document.getElementById("inner");
-const msg=document.getElementById("msg");
-const endBtn=document.getElementById("endBtn");
+(function() {
+  // DOM элементы
+  const elements = {
+    text: document.getElementById('sceneText'),
+    card: document.getElementById('card'),
+    inner: document.getElementById('inner'),
+    msg: document.getElementById('msg'),
+    endBtn: document.getElementById('endBtn'),
+    canvas: document.getElementById('space')
+  };
 
-/* сцены */
-const scenes=[
-"В бесконечной вселенной...",
-"Среди миллиардов людей...",
-"Я нашёл самое ценное..."
-];
+  // Конфигурация
+  const CONFIG = {
+    scenes: [
+      "В бесконечной вселенной...",
+      "Среди миллиардов людей...", 
+      "Я нашёл самое ценное..."
+    ],
+    typingSpeed: 40,
+    animationDuration: 800,
+    sceneDelay: 2000,
+    heartInterval: 120,
+    starCount: 150
+  };
 
-let step=0;
+  let currentStep = 0;
+  let typingInterval = null;
+  let heartInterval = null;
+  let speechQueue = [];
 
-/* запуск сцен */
-function nextScene(){
-if(step<scenes.length){
-text.style.opacity=0;
+  // Инициализация
+  function init() {
+    setupCanvas();
+    startScenes();
+    setupEventListeners();
+    handleResize();
+  }
 
-setTimeout(()=>{
-text.textContent=scenes[step];
-text.style.opacity=1;
-step++;
-setTimeout(nextScene,2000);
-},800);
+  // Обработчики событий
+  function setupEventListeners() {
+    elements.inner.addEventListener('click', handleCardFlip);
+    elements.endBtn.addEventListener('click', handleFinale);
+    window.addEventListener('resize', handleResize);
+  }
 
-}else{
-setTimeout(startCard,1500);
-}
-}
-nextScene();
+  // Сцены
+  function startScenes() {
+    nextScene();
+  }
 
-/* показ открытки */
-function startCard(){
-text.style.opacity=0;
-card.classList.remove("hidden");
-voice("Это для тебя");
-}
+  function nextScene() {
+    if (currentStep < CONFIG.scenes.length) {
+      fadeOutText(() => {
+        elements.text.textContent = CONFIG.scenes[currentStep];
+        fadeInText();
+        currentStep++;
+        setTimeout(nextScene, CONFIG.sceneDelay);
+      });
+    } else {
+      setTimeout(showCard, 1500);
+    }
+  }
 
-/* переворот */
-inner.onclick=()=>{
-inner.classList.add("flip");
-type("Ты — самое прекрасное, что случилось со мной ❤️");
-};
+  // Работа с текстом
+  function fadeOutText(callback) {
+    elements.text.style.opacity = '0';
+    setTimeout(callback, CONFIG.animationDuration);
+  }
 
-/* печать */
-function type(t){
-let i=0;
-const inter=setInterval(()=>{
-msg.textContent+=t[i];
-i++;
-if(i>=t.length) clearInterval(inter);
-},40);
-}
+  function fadeInText() {
+    elements.text.style.opacity = '1';
+  }
 
-/* голос */
-function voice(t){
-const v=new SpeechSynthesisUtterance(t);
-v.lang="ru-RU";
-speechSynthesis.speak(v);
-}
+  function typeText(text) {
+    if (typingInterval) clearInterval(typingInterval);
+    
+    elements.msg.textContent = '';
+    let index = 0;
+    
+    typingInterval = setInterval(() => {
+      if (index < text.length) {
+        elements.msg.textContent += text[index];
+        index++;
+      } else {
+        clearInterval(typingInterval);
+        typingInterval = null;
+      }
+    }, CONFIG.typingSpeed);
+  }
 
-/* финал эффект */
-endBtn.onclick=(e)=>{
-e.stopPropagation();
-finale();
-};
+  // Открытка
+  function showCard() {
+    fadeOutText();
+    elements.card.classList.remove('hidden');
+    speakText('Это для тебя');
+  }
 
-function finale(){
-voice("Я люблю тебя");
-setInterval(()=>{
-const el=document.createElement("div");
-el.className="love";
-el.textContent="❤";
-el.style.left=Math.random()*100+"vw";
-el.style.bottom="-20px";
-el.style.animationDuration=3+Math.random()*3+"s";
-document.body.appendChild(el);
-setTimeout(()=>el.remove(),6000);
-},120);
-}
+  function handleCardFlip() {
+    elements.inner.classList.add('flip');
+    typeText("Ты — самое прекрасное, что случилось со мной ❤️");
+  }
 
-/* космос */
-const canvas=document.getElementById("space");
-const ctx=canvas.getContext("2d");
-canvas.width=innerWidth;
-canvas.height=innerHeight;
+  // Голосовой синтез
+  function speakText(text) {
+    if (speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+    }
 
-let stars=Array.from({length:150},()=>({
-x:Math.random()*canvas.width,
-y:Math.random()*canvas.height,
-z:Math.random()*2
-}));
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ru-RU';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+    
+    utterance.onend = () => {
+      speechQueue.shift();
+      if (speechQueue.length > 0) {
+        speechSynthesis.speak(speechQueue[0]);
+      }
+    };
 
-function space(){
-ctx.fillStyle="black";
-ctx.fillRect(0,0,canvas.width,canvas.height);
+    if (speechSynthesis.speaking) {
+      speechQueue.push(utterance);
+    } else {
+      speechSynthesis.speak(utterance);
+    }
+  }
 
-ctx.fillStyle="white";
-stars.forEach(s=>{
-ctx.beginPath();
-ctx.arc(s.x,s.y,s.z,0,Math.PI*2);
-ctx.fill();
-s.y+=s.z;
-if(s.y>canvas.height)s.y=0;
-});
-requestAnimationFrame(space);
-}
-space();
+  // Финал с сердечками
+  function handleFinale(event) {
+    event.stopPropagation();
+    startFinale();
+  }
+
+  function startFinale() {
+    speakText('Я люблю тебя');
+    
+    if (heartInterval) clearInterval(heartInterval);
+    
+    heartInterval = setInterval(createHeart, CONFIG.heartInterval);
+    setTimeout(() => {
+      if (heartInterval) clearInterval(heartInterval);
+    }, 10000); // Останавливаем через 10 секунд
+  }
+
+  function createHeart() {
+    const heart = document.createElement('div');
+    heart.className = 'love';
+    heart.textContent = '❤️';
+    heart.style.left = Math.random() * 100 + '%';
+    heart.style.animationDuration = 2 + Math.random() * 4 + 's';
+    heart.style.fontSize = 20 + Math.random() * 30 + 'px';
+    heart.style.opacity = 0.5 + Math.random() * 0.5;
+    
+    document.body.appendChild(heart);
+    
+    heart.addEventListener('animationend', () => {
+      heart.remove();
+    });
+  }
+
+  // Космос (оптимизированный)
+  function setupCanvas() {
+    const ctx = elements.canvas.getContext('2d');
+    let stars = [];
+    let animationFrame = null;
+
+    function initStars() {
+      stars = Array.from({ length: CONFIG.starCount }, () => ({
+        x: Math.random() * elements.canvas.width,
+        y: Math.random() * elements.canvas.height,
+        size: Math.random() * 2 + 0.5,
+        speed: Math.random() * 0.5 + 0.2
+      }));
+    }
+
+    function resizeCanvas() {
+      elements.canvas.width = window.innerWidth;
+      elements.canvas.height = window.innerHeight;
+      initStars();
+    }
+
+    function draw() {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, elements.canvas.width, elements.canvas.height);
+
+      ctx.fillStyle = 'white';
+      stars.forEach(star => {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        star.y += star.speed;
+        if (star.y > elements.canvas.height) {
+          star.y = 0;
+          star.x = Math.random() * elements.canvas.width;
+        }
+      });
+
+      animationFrame = requestAnimationFrame(draw);
+    }
+
+    function start() {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      draw();
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+    });
+
+    resizeCanvas();
+    start();
+  }
+
+  function handleResize() {
+    // Дополнительная обработка ресайза при необходимости
+  }
+
+  // Запуск приложения
+  document.addEventListener('DOMContentLoaded', init);
+})();
