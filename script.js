@@ -26,7 +26,6 @@
   let currentStep = 0;
   let typingInterval = null;
   let heartInterval = null;
-  let speechQueue = [];
 
   // Инициализация
   function init() {
@@ -92,37 +91,11 @@
   function showCard() {
     fadeOutText();
     elements.card.classList.remove('hidden');
-    speakText('Это для тебя');
   }
 
   function handleCardFlip() {
     elements.inner.classList.add('flip');
     typeText("Ты — самое прекрасное, что случилось со мной ❤️");
-  }
-
-  // Голосовой синтез
-  function speakText(text) {
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ru-RU';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    
-    utterance.onend = () => {
-      speechQueue.shift();
-      if (speechQueue.length > 0) {
-        speechSynthesis.speak(speechQueue[0]);
-      }
-    };
-
-    if (speechSynthesis.speaking) {
-      speechQueue.push(utterance);
-    } else {
-      speechSynthesis.speak(utterance);
-    }
   }
 
   // Финал с сердечками
@@ -131,9 +104,7 @@
     startFinale();
   }
 
-  function startFinale() {
-    speakText('Я люблю тебя');
-    
+  function startFinale() {    
     if (heartInterval) clearInterval(heartInterval);
     
     heartInterval = setInterval(createHeart, CONFIG.heartInterval);
